@@ -45,8 +45,9 @@ class State():
     # Use action score to weight probability of choosing that action
     actions = {} # at, past, left init with -1
     name = ""
-    def __init__():
-        pass
+    def __init__(self, actions, name):
+        self.actions = actions
+        self.name = name
 
 
 
