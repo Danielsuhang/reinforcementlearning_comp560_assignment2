@@ -3,14 +3,19 @@ import random
 
 class MarkovDecisionProcess():
     def __init__(self, file_path):
+        self.total_score = 0
         self.process_inputs(file_path)
         self.state_name_to_obj = {state.name : state for state in self.states}
+        for _ in range(1000):
+            for cur_state in self.states:
+                if (cur_state.name == "In"):
+                    continue
+                for cur_action_name in cur_state.unique_actions:
+                    self.explore_policy(cur_state, cur_action_name)
+        self.print_state_variables()
+                
 
-        for cur_state in self.states:
-            for cur_action_name in cur_state.unique_actions:
-                self.evaluate_state(cur_state, cur_action_name)
-
-    def evaluate_state(self, start_state, start_action_name):
+    def explore_policy(self, start_state, start_action_name):
         # Evaluate the policy of one state with one start_action_choosen
         # Iteratively continue until "In" is reached
         cur_state = start_state
@@ -22,21 +27,20 @@ class MarkovDecisionProcess():
             next_action_name = self.randomly_get_next_action_from_utilities(
                 cur_state)
             score += 1
-        start_state.action_utility_scores[start_action_name] = score
-        print("Successfully evaluated :" , start_state.name, " with action name of: ", start_action_name)
-        print("Score of: ", score)
+        start_state.action_utility_scores[start_action_name].append(score) 
+        self.total_score += score
 
     def randomly_get_next_action_from_utilities(self, state):
         if (state.name == "In"):
-            print("Found Correct State.")
             return None
+        average_action_score_dict = {action_name : state.get_average_score(action_name) for action_name in state.unique_actions}
         random_num = random.uniform(
-            0, sum(state.action_utility_scores.values()))
+            0, sum(average_action_score_dict.values()))
         cur_cumulative_score = 0
-        for action, utility_score in state.action_utility_scores.items():
-            cur_cumulative_score += utility_score
+        for action_name in state.action_utility_scores.keys():
+            cur_cumulative_score += average_action_score_dict[action_name]
             if (random_num <= cur_cumulative_score):
-                return action
+                return action_name
         raise Exception(
             "randomly_get_next_action_from_utilities: random number exceeded cumulative utility scores.")
 
@@ -69,8 +73,8 @@ class MarkovDecisionProcess():
             for action in state.possible_actions:
                 print(action.cur_state, action.action_name,
                       action.new_state, action.probability)
-            for action, score in state.action_utility_scores.items():
-                print(action, score)
+            for action in state.action_utility_scores.keys():
+                print(action, state.get_average_score(action))
             print()
 
     @staticmethod
@@ -150,8 +154,12 @@ class State():
         self.unique_actions = {
             action.action_name for action in self.possible_actions}
         self.action_utility_scores = { 
-            action: self.DEFAULT_UTILITY_SCORE for action in self.unique_actions}
-        self.policy = "" 
+            action: [self.DEFAULT_UTILITY_SCORE] for action in self.unique_actions}
+        self.policy = ""
+    
+    def get_average_score(self, action_name):
+        scores = self.action_utility_scores[action_name]
+        return sum(scores) / len(scores)
 
 
 if __name__ == "__main__":
