@@ -6,10 +6,9 @@ class MarkovDecisionProcess():
         self.process_inputs(file_path)
         self.state_name_to_obj = {state.name : state for state in self.states}
 
-        explore_states = filter(lambda s : s.name == "Close" or s.name == "Same" or s.name == "Left", self.states)
-        for cur_state in explore_states:
-            for cur_action in cur_state.possible_actions:
-                self.evaluate_state(cur_state, cur_action.action_name)
+        for cur_state in self.states:
+            for cur_action_name in cur_state.unique_actions:
+                self.evaluate_state(cur_state, cur_action_name)
 
     def evaluate_state(self, start_state, start_action_name):
         # Evaluate the policy of one state with one start_action_choosen
