@@ -1,23 +1,25 @@
 import random
 
 
-class MarkovDecisionProcess():
+class ModelFreeLearning():
     def __init__(self, file_path):
         self.total_score = 0
         self.process_inputs(file_path)
         self.state_name_to_obj = {state.name : state for state in self.states}
-        for _ in range(1000):
+        total_runs = 2000
+        exploit_explore_ratio = 0.5
+        for _ in range(int(total_runs * exploit_explore_ratio)):
             for cur_state in self.states:
                 if (cur_state.name == "In"):
                     continue
                 for cur_action_name in cur_state.unique_actions:
                     self.explore_policy(cur_state, cur_action_name)
-        self.print_state_variables()
-                
 
+        self.print_state_variables()
+    
     def explore_policy(self, start_state, start_action_name):
-        # Evaluate the policy of one state with one start_action_choosen
-        # Iteratively continue until "In" is reached
+        """ Evaluate the policy of one state with one start_action_choosen
+         Iteratively continue until "In" is reached """
         cur_state = start_state
         next_action_name = start_action_name
         score = 0
@@ -29,7 +31,7 @@ class MarkovDecisionProcess():
             score += 1
         start_state.action_utility_scores[start_action_name].append(score) 
         self.total_score += score
-
+    
     def randomly_get_next_action_from_utilities(self, state):
         if (state.name == "In"):
             return None
@@ -61,10 +63,10 @@ class MarkovDecisionProcess():
 
     def process_inputs(self, file_path):
         f = open(file_path, "r")
-        all_inputs = MarkovDecisionProcess.read_new_line(f)
-        self.actions = MarkovDecisionProcess.process_action_input(all_inputs)
-        self.state_names = MarkovDecisionProcess.get_state_names(all_inputs)
-        self.states = MarkovDecisionProcess.init_states(
+        all_inputs = ModelFreeLearning.read_new_line(f)
+        self.actions = ModelFreeLearning.process_action_input(all_inputs)
+        self.state_names = ModelFreeLearning.get_state_names(all_inputs)
+        self.states = ModelFreeLearning.init_states(
             self.state_names, self.actions)
 
     def print_state_variables(self):
@@ -100,7 +102,7 @@ class MarkovDecisionProcess():
     def init_states(state_names, all_actions):
         states = []
         for state_name in state_names:
-            states.append(MarkovDecisionProcess.create_state(
+            states.append(ModelFreeLearning.create_state(
                 state_name, all_actions))
         return states
 
@@ -163,4 +165,4 @@ class State():
 
 
 if __name__ == "__main__":
-    markov_decision_process = MarkovDecisionProcess("test_data.txt")
+    markov_decision_process = ModelFreeLearning("test_data.txt")
