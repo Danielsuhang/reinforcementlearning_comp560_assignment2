@@ -1,19 +1,106 @@
 import random
 
 
+
 class MarkovDecisionProcess():
-    def __init__(self, file_path):
-        self.total_score = 0
-        self.process_inputs(file_path)
-        self.state_name_to_obj = {state.name : state for state in self.states}
-        for _ in range(1000):
-            for cur_state in self.states:
-                if (cur_state.name == "In"):
-                    continue
-                for cur_action_name in cur_state.unique_actions:
-                    self.explore_policy(cur_state, cur_action_name)
-        self.print_state_variables()
-                
+    def __init__(self, file_path, model_based=False):
+        if not model_based:
+            self.total_score = 0
+            self.process_inputs(file_path)
+            self.state_name_to_obj = {state.name : state for state in self.states}
+            for _ in range(1000):
+                for cur_state in self.states:
+                    if (cur_state.name == "In"):
+                        continue
+                    for cur_action_name in cur_state.unique_actions:
+                        self.explore_policy(cur_state, cur_action_name)
+            self.print_state_variables()
+        else:
+            self.process_inputs(file_path)
+            self.state_name_to_obj = {state.name : state for state in self.states}
+            #for model-based, we need to learn transition probabilities
+            for _ in range(3000):
+                for cur_state in self.states:
+                    self.model_based_learning(cur_state, _)
+            self.print_state_variables(True)
+
+    def get_state_by_name(self, state_name):
+        for state in self.states:
+            if state.name == state_name:
+                return state
+
+
+    def model_based_learning(self, start_state, iteration, exploration=.2, gamma=.9):
+        cur_state = start_state
+        
+        while (cur_state.name != "In"):
+            if iteration < 3:
+                print(cur_state.name, cur_state.utility, "prev")
+            #step 1, determine what action we will take by what is currently the most optimal or random choice if doing exploration
+            next_action_name = ""
+            if random.random() <= .2:
+                next_action_name = list(cur_state.unique_actions)[random.randint(0, len(cur_state.unique_actions) - 1)]
+            else:
+                next_action_name = self.get_optimal_action(cur_state)
+
+            #step 2: observe what the next state will be
+            next_state = self.get_next_state_from_action(cur_state, next_action_name)
+
+            #print(cur_state.name, next_action_name, "state and action for iteration")
+            #step 3: update transition probabilities
+            cur_actions = list(filter(lambda a: a != None, [possible_action if possible_action.action_name == next_action_name else None for possible_action in cur_state.possible_actions_blank]))
+
+            #for act in cur_actions:
+            #    print(act.cur_state, act.new_state, act.action_name, act.probability)
+
+            for act in cur_actions:
+                act.total_observed += 1
+                if self.get_state_by_name(act.new_state).name == next_state.name:
+                    act.times_observed += 1
+                act.update_prob()
+
+            #step 4: update utility of current state
+            best_action_utility = float("inf")
+            for act in cur_state.unique_actions:
+                act_utility  = 0
+                cur_actions = list(filter(lambda a: a != None, [possible_action if possible_action.action_name == act else None for possible_action in cur_state.possible_actions_blank]))
+                if len(cur_actions) == 0:
+                    exit(-1)
+                for pos_action in cur_actions:
+                    act_utility += pos_action.probability * self.get_state_by_name(pos_action.new_state).utility
+                if best_action_utility > act_utility: #we want low utilities
+                    best_action_utility = act_utility
+            cur_state.utility = best_action_utility * gamma + cur_state.DEFAULT_REWARD_VALUE
+
+            #for act in cur_actions:
+            #    print(act.cur_state, act.new_state, act.action_name, act.probability)
+
+            if iteration < 3:
+                print(cur_state.utility, "post")
+            #step 5: go to next state
+            cur_state = next_state
+
+            
+    
+    def get_blank_action(self, start_state, action_name, next_state):
+        for action in self.blank_actions:
+                if action.cur_state.name == start_state.name and action_name == action.action_name and next_state.name == action.new_state:
+                    return action
+        print("ERROR IN GET_BLANK_ACTION")
+
+    def get_optimal_action(self, state):
+        best_action_name = ""
+        best_action_val = float("inf")
+        for action_name in state.unique_actions:
+            val = 0
+            cur_actions = list(filter(lambda a: a != None, [possible_action if possible_action.action_name == action_name else None for possible_action in state.possible_actions_blank]))
+            for action in cur_actions:
+                val += self.get_state_by_name(action.new_state).utility * action.probability
+            if val < best_action_val:
+                best_action_val = val
+                best_action_name = action_name
+        return best_action_name
+                    
 
     def explore_policy(self, start_state, start_action_name):
         # Evaluate the policy of one state with one start_action_choosen
@@ -63,28 +150,35 @@ class MarkovDecisionProcess():
         f = open(file_path, "r")
         all_inputs = MarkovDecisionProcess.read_new_line(f)
         self.actions = MarkovDecisionProcess.process_action_input(all_inputs)
+        self.blank_actions = MarkovDecisionProcess.process_action_input(all_inputs, True)
         self.state_names = MarkovDecisionProcess.get_state_names(all_inputs)
         self.states = MarkovDecisionProcess.init_states(
-            self.state_names, self.actions)
+            self.state_names, self.actions, self.blank_actions)
 
-    def print_state_variables(self):
+    def print_state_variables(self, model_based=False):
         for state in self.states:
-            print(state.name)
-            for action in state.possible_actions:
+            print(state.name, " utility: ", state.utility)
+            for action in state.possible_actions if not model_based else state.possible_actions_blank:
                 print(action.cur_state, action.action_name,
                       action.new_state, action.probability)
             for action in state.action_utility_scores.keys():
-                print(action, state.get_average_score(action))
+                if not model_based:
+                    print(action, state.get_average_score(action))
             print()
 
     @staticmethod
-    def process_action_input(raw_inputs):
+    def process_action_input(raw_inputs, blank=False):
         actions = []
         for input in raw_inputs:
             unprocessed_inputs = input.split("/")
-            action = Action(
-                unprocessed_inputs[0], unprocessed_inputs[1], unprocessed_inputs[2], unprocessed_inputs[3])
-            actions.append(action)
+            if not blank:
+                action = Action(
+                    unprocessed_inputs[0], unprocessed_inputs[1], unprocessed_inputs[2], unprocessed_inputs[3])
+                actions.append(action)
+            else:
+                action = Action(
+                    unprocessed_inputs[0], unprocessed_inputs[1], unprocessed_inputs[2], .3333)
+                actions.append(action)
         return actions
 
     @staticmethod
@@ -97,18 +191,22 @@ class MarkovDecisionProcess():
         return state_names
 
     @staticmethod
-    def init_states(state_names, all_actions):
+    def init_states(state_names, all_actions, blank_actions):
         states = []
         for state_name in state_names:
             states.append(MarkovDecisionProcess.create_state(
-                state_name, all_actions))
+                state_name, all_actions, blank_actions))
         return states
 
     @staticmethod
-    def create_state(state_name, all_actions):
+    def create_state(state_name, all_actions, blank_actions):
         actions = list(filter(lambda action: action.cur_state ==
                               state_name, all_actions))
-        new_state = State(state_name, actions)
+        blank_actions = list(filter(lambda action: action.cur_state == state_name, blank_actions))
+        new_state = State(state_name, actions, blank_actions)
+        if new_state.name == "In":
+            new_state.DEFAULT_UTILITY_SCORE = 0
+            new_state.DEFAULT_REWARD_VALUE = 0
         return new_state
 
     @staticmethod
@@ -139,7 +237,16 @@ class Action():
         self.probability = float(prob)
         self.action_name = action_name
 
+        self.times_observed = 0
+        self.total_observed = 0
+
+    def update_prob(self):
+        self.probability = float(self.times_observed / self.total_observed)
+        if self.probability == 0:
+            self.probability = .33 #this is used to make sure utilities don't rush to 0,
+
 class State():
+    DEFAULT_REWARD_VALUE = 1
     DEFAULT_UTILITY_SCORE = 1
     """ 
         name: Name of this action E.g: Putt, At, Past, etc..
@@ -148,19 +255,28 @@ class State():
         action_utility_scores: Dictionary of action names to their utility score
         policy: The current best action in this state
     """
-    def __init__(self, name, possible_actions):
+    def __init__(self, name, possible_actions, possible_actions_blank=[]):
         self.name = name
         self.possible_actions = possible_actions 
+        self.possible_actions_blank = possible_actions_blank
         self.unique_actions = {
             action.action_name for action in self.possible_actions}
         self.action_utility_scores = { 
             action: [self.DEFAULT_UTILITY_SCORE] for action in self.unique_actions}
         self.policy = ""
+        self.unique_action_probs = [1 / len(possible_actions) for i in range(len(possible_actions))]
+        self.utility = 1 if name != "In" else 0
+        self.DEFAULT_REWARD_VALUE = 1 if name != "In" else 0
     
     def get_average_score(self, action_name):
         scores = self.action_utility_scores[action_name]
         return sum(scores) / len(scores)
 
+    #def get_prob_of_state(self, action_name, next_state), next:
+    #    for pos_action in self.possible_actions:
+    #        if pos_action.cur_state.name == self.name and action_name == pos_action.action_name and next_state.name == pos_action.new_state:
+    #            return ac
+
 
 if __name__ == "__main__":
-    markov_decision_process = MarkovDecisionProcess("test_data.txt")
+    markov_decision_process = MarkovDecisionProcess("test_data.txt", True)
