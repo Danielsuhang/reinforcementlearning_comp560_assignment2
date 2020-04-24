@@ -14,7 +14,12 @@ class MarkovDecisionProcess():
                     if (cur_state.name == "In"):
                         continue
                     for cur_action_name in cur_state.unique_actions:
-                        self.explore_policy(cur_state, cur_action_name)
+                        self.explore_policy_model_free(cur_state, cur_action_name)
+            for _ in range(int(total_runs * (1 - exploit_explore_ratio))):
+                self.exploit_policy_model_free()
+            self.print_state_variables()
+            print()
+            print(self.total_score)
         else:
             self.state_name_to_obj = {state.name : state for state in self.states}
             #for model-based, we need to learn transition probabilities
@@ -27,7 +32,6 @@ class MarkovDecisionProcess():
         for state in self.states:
             if state.name == state_name:
                 return state
-
 
     def model_based_learning(self, start_state, iteration, exploration=.2, gamma=.9):
         cur_state = start_state
@@ -78,8 +82,6 @@ class MarkovDecisionProcess():
                 print(cur_state.utility, "post")
             #step 5: go to next state
             cur_state = next_state
-
-            
     
     def get_blank_action(self, start_state, action_name, next_state):
         for action in self.blank_actions:
@@ -99,8 +101,18 @@ class MarkovDecisionProcess():
                 best_action_val = val
                 best_action_name = action_name
         return best_action_name
+
+    def exploit_policy_model_free(self):
+        """Always pick the optimal action from a random state"""
+        cur_state = random.choice(self.states)
+        score = 0
+        while (cur_state.name != "In"):
+            optimal_action = self.get_optimal_action(cur_state)
+            cur_state = self.get_next_state_from_action(cur_state, optimal_action)
+            score += 1
+        self.total_score += score
                     
-    def explore_policy(self, start_state, start_action_name):
+    def explore_policy_model_free(self, start_state, start_action_name):
         """ Evaluate the policy of one state with one start_action_choosen
          Iteratively continue until "In" is reached """
         cur_state = start_state
@@ -269,12 +281,6 @@ class State():
     def get_average_score(self, action_name):
         scores = self.action_utility_scores[action_name]
         return sum(scores) / len(scores)
-
-    #def get_prob_of_state(self, action_name, next_state), next:
-    #    for pos_action in self.possible_actions:
-    #        if pos_action.cur_state.name == self.name and action_name == pos_action.action_name and next_state.name == pos_action.new_state:
-    #            return ac
-
 
 if __name__ == "__main__":
     markov_decision_process = MarkovDecisionProcess("test_data.txt")
