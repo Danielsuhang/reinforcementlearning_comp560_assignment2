@@ -1,0 +1,4 @@
+To execute the program, run the command:
+python reinforcement_learning.py
+
+Running this program will run and output the results from our model free and model-based learning approaches.1

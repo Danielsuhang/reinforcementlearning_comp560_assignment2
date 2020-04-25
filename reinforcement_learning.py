@@ -4,6 +4,7 @@ class MarkovDecisionProcess():
 
     def __init__(self, file_path, model_based=False):
         self.process_inputs(file_path)
+        self.epsilon = .002
         if not model_based:
             self.total_score = 0
             self.state_name_to_obj = {state.name : state for state in self.states}
@@ -24,8 +25,14 @@ class MarkovDecisionProcess():
             self.state_name_to_obj = {state.name : state for state in self.states}
             #for model-based, we need to learn transition probabilities
             for _ in range(3000):
+                iter_diff = 0
                 for cur_state in self.states:
-                    self.model_based_learning(cur_state, _)
+                    iter_diff += self.model_based_learning(cur_state, _)
+                if iter_diff < self.epsilon:
+                    print("stopped after ", _, " iterations with diff: ", iter_diff)
+                    break
+
+                
             self.print_state_variables(True)
 
     def get_state_by_name(self, state_name):
@@ -33,15 +40,15 @@ class MarkovDecisionProcess():
             if state.name == state_name:
                 return state
 
-    def model_based_learning(self, start_state, iteration, exploration=.2, gamma=.9):
+    def model_based_learning(self, start_state, iteration, exploration=.2, gamma=.5):
         cur_state = start_state
+        iteration_utility_diff = 0
         
         while (cur_state.name != "In"):
-            if iteration < 3:
-                print(cur_state.name, cur_state.utility, "prev")
+            start_utility = cur_state.utility
             #step 1, determine what action we will take by what is currently the most optimal or random choice if doing exploration
             next_action_name = ""
-            if random.random() <= .2:
+            if random.random() <= exploration:
                 next_action_name = list(cur_state.unique_actions)[random.randint(0, len(cur_state.unique_actions) - 1)]
             else:
                 next_action_name = self.get_optimal_action(cur_state)
@@ -78,10 +85,14 @@ class MarkovDecisionProcess():
             #for act in cur_actions:
             #    print(act.cur_state, act.new_state, act.action_name, act.probability)
 
-            if iteration < 3:
-                print(cur_state.utility, "post")
+            #if iteration < 3:
+            #    print(cur_state.utility, "post")
+
+            end_utility = cur_state.utility
+            iteration_utility_diff += abs(end_utility - start_utility)
             #step 5: go to next state
             cur_state = next_state
+        return iteration_utility_diff
     
     def get_blank_action(self, start_state, action_name, next_state):
         for action in self.blank_actions:
@@ -166,8 +177,10 @@ class MarkovDecisionProcess():
             self.state_names, self.actions, self.blank_actions)
 
     def print_state_variables(self, model_based=False):
+        total_utility = 0
         for state in self.states:
-            print(state.name, " utility: ", state.utility)
+            print(state.name, " utility: ", state.utility, " optimal action from state: " + self.get_optimal_action(state))
+            total_utility += state.utility
             for action in state.possible_actions if not model_based else state.possible_actions_blank:
                 print(action.cur_state, action.action_name,
                       action.new_state, action.probability)
@@ -175,6 +188,7 @@ class MarkovDecisionProcess():
                 if not model_based:
                     print(action, state.get_average_score(action))
             print()
+        print("Total Utility: ", total_utility)
 
     @staticmethod
     def process_action_input(raw_inputs, blank=False):
@@ -283,4 +297,5 @@ class State():
         return sum(scores) / len(scores)
 
 if __name__ == "__main__":
-    markov_decision_process = MarkovDecisionProcess("test_data.txt")
+    markov_decision_process = MarkovDecisionProcess("test_data.txt", False)
+    markov_decision_process = MarkovDecisionProcess("test_data.txt", True)
