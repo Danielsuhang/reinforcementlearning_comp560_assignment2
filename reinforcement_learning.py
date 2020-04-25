@@ -56,12 +56,8 @@ class MarkovDecisionProcess():
             #step 2: observe what the next state will be
             next_state = self.get_next_state_from_action(cur_state, next_action_name)
 
-            #print(cur_state.name, next_action_name, "state and action for iteration")
             #step 3: update transition probabilities
             cur_actions = list(filter(lambda a: a != None, [possible_action if possible_action.action_name == next_action_name else None for possible_action in cur_state.possible_actions_blank]))
-
-            #for act in cur_actions:
-            #    print(act.cur_state, act.new_state, act.action_name, act.probability)
 
             for act in cur_actions:
                 act.total_observed += 1
@@ -82,12 +78,6 @@ class MarkovDecisionProcess():
                     best_action_utility = act_utility
             cur_state.utility = best_action_utility * gamma + cur_state.DEFAULT_REWARD_VALUE
 
-            #for act in cur_actions:
-            #    print(act.cur_state, act.new_state, act.action_name, act.probability)
-
-            #if iteration < 3:
-            #    print(cur_state.utility, "post")
-
             end_utility = cur_state.utility
             iteration_utility_diff += abs(end_utility - start_utility)
             #step 5: go to next state
@@ -100,6 +90,9 @@ class MarkovDecisionProcess():
                     return action
         print("ERROR IN GET_BLANK_ACTION")
 
+    '''
+    Based on current utility values, find the most optimal action to choose for the provided state
+    '''
     def get_optimal_action(self, state):
         best_action_name = ""
         best_action_val = float("inf")
@@ -288,7 +281,6 @@ class State():
         self.action_utility_scores = { 
             action: [self.DEFAULT_UTILITY_SCORE] for action in self.unique_actions}
         self.policy = ""
-        self.unique_action_probs = [1 / len(possible_actions) for i in range(len(possible_actions))]
         self.utility = 1 if name != "In" else 0
         self.DEFAULT_REWARD_VALUE = 1 if name != "In" else 0
     

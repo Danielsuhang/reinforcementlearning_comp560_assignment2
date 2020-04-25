@@ -1,4 +1,4 @@
 To execute the program, run the command:
 python reinforcement_learning.py
 
-Running this program will run and output the results from our model free and model-based learning approaches.1
+Running this program will run and output the results from our model free and model-based learning approaches. It is expected that there will be a file in the same directory as this program called test_data.txt with the transition probabilities.
